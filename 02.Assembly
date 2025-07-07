@@ -1,0 +1,61 @@
+# Now we can confidently assemble the reference genome. We're using the ONT flag inside hifiasm to do it
+
+#!/bin/bash
+WD="/home/panthera/DiscoF/CBP/Macroprotodon_brevis"
+indir=${WD}"/res/01.1.Trimming"
+outdir=${WD}"/res/02.1.Assembly"
+mkdir $outdir
+THREADS=32
+
+source /home/panthera/miniconda3/etc/profile.d/conda.sh
+conda activate reference_sergi
+
+hifiasm2 -t${THREADS} --ont -o $outdir/Hierophis.asm $indir/filtered_ONT.fq.gz --h1 $indir/filtered_HIC_1.fq.gz --h2 $indir/filtered_HIC_2.fq.gz --dual-scaf -l 1
+
+
+awk '/^S/{print ">"$2"\n"$3}' ${outdir}/Hierophis.asm.hic.p_ctg.gfa |fold > ${outdir}/assembly_consensus.fa
+
+awk '/^S/{print ">"$2"\n"$3}' ${outdir}/Hierophis.asm.hic.hap1.p_ctg.gfa |fold > ${outdir}/assembly_hap1.fa
+
+awk '/^S/{print ">"$2"\n"$3}' ${outdir}/Hierophis.asm.hic.hap2.p_ctg.gfa |fold > ${outdir}/assembly_hap2.fa
+
+# And we can also see our results. Up to now BUSCO is working well enough, but I've been unable to keep the gfastats in a .txt file, aside from actually copying and pasting from the terminal:
+
+#!/bin/bash
+WD="/home/panthera/DiscoF/CBP/Macroprotodon_brevis"
+indir=${WD}"/res/02.1.Assembly"
+outdir=${WD}"/res/02.2.Assessment"
+busco="/mnt/DiscoF/BUSCO"
+mkdir $outdir
+mkdir ${outdir}/consensus
+mkdir ${outdir}/hap1
+mkdir ${outdir}/hap2
+mkdir ${outdir}/consensus/squamata
+mkdir ${outdir}/consensus/vertebrata
+mkdir ${outdir}/hap1/squamata
+mkdir ${outdir}/hap1/vertebrata
+mkdir ${outdir}/hap2/squamata
+mkdir ${outdir}/hap2/vertebrata
+
+export PATH=/home/panthera/DiscoF/BUSCO/busco-5.8.3/busco_tools/miniprot-0.15_x64-linux:$PATH
+
+gfastats -i ${indir}/Hierophis_viridiflavus.consesus.fa > ${outdir}/consensus/gfastats_consensus.txt 2>&1
+
+gfastats -i ${indir}/Hierophis_viridiflavus_hap1.fa > ${outdir}/hap1/gfastats_hap1.txt 2>&1
+
+gfastats -i ${indir}/Hierophis_viridiflavus_hap2.fa > ${outdir}/hap2/gfastats_hap2.txt 2>&1
+
+
+python3.8 ${busco}/busco-5.8.3/bin/busco -m genome -i ${indir}/Hierophis_viridiflavus.consensus.fa  -o /res/02.2.Assessment/consensus/squamata -l ${busco}/squamata_odb12 -c 32 -f --offline
+
+python3.8 ${busco}/busco-5.8.3/bin/busco -m genome -i ${indir}/Hierophis_viridiflavus.consensus.fa  -o /res/02.2.Assessment/consensus/vertebrata -l ${busco}/vertebrata_odb12 -c 32 -f --offline
+
+
+python3.8 ${busco}/busco-5.8.3/bin/busco -m genome -i ${indir}/Hierophis_viridiflavus_hap1.fa  -o /res/02.2.Assessment/hap1/squamata -l ${busco}/squamata_odb12 -c 32 -f --offline
+
+python3.8 ${busco}/busco-5.8.3/bin/busco -m genome -i ${indir}/Hierophis_viridiflavus_hap1.fa  -o /res/02.2.Assessment/hap1/vertebrata -l ${busco}/vertebrata_odb12 -c 32 -f --offline
+
+
+python3.8 ${busco}/busco-5.8.3/bin/busco -m genome -i ${indir}/Hierophis_viridiflavus_hap2.fa  -o /res/02.2.Assessment/hap2/squamata -l ${busco}/squamata_odb12 -c 32 -f --offline
+
+python3.8 ${busco}/busco-5.8.3/bin/busco -m genome -i ${indir}/Hierophis_viridiflavus_hap2.fa  -o /res/02.2.Assessment/hap2/vertebrata -l ${busco}/vertebrata_odb12 -c 32 -f --offline
