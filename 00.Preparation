@@ -1,0 +1,30 @@
+# Our first step is to concatenate all the data from each type into a single file for each one (keeping type of data and forawrd/reverse separate).
+
+#!/bin/bash
+WD="/home/panthera/DiscoF/CBP/Macroprotodon_brevis"
+ONT=${WD}"/data/ONT"
+HIC=${WD}"/data/HIC"
+ILLUMINA=${WD}"/data/ILLUMINA"
+
+
+zcat $ONT/* | pigz -p 10 -c > ${ONT}/raw_ONT.fq.gz
+
+zcat ${HIC}/*_1.* | pigz -p 10 -c > ${HIC}/raw_HIC_1.fq.gz
+
+zcat $ILLUMINA/*_1.* | pigz -p 10 -c > ${ILLUMINA}/raw_ILLUMINA_1.fq.gz
+
+zcat $HIC/*_2.* | pigz -p 10 -c > ${HIC}/raw_HIC_2.fq.gz
+
+zcat $ILLUMINA/*_2.* | pigz -p 10 -c > ${ILLUMINA}/raw_ILLUMINA_2.fq.gz
+
+# We also want to check for the quality of our data. This won't work with the ONT data, but will with Illumina and HiC
+
+mkdir ${WD}/res/00.multiqc
+for i in $(ls data/*/raw*)
+do
+d=${WD}/${i}
+echo "Processing directory: ${d}"
+(fastqc ${d} -o ${WD}/res/00.multiqc/
+)
+done
+
