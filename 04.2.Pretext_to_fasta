@@ -1,0 +1,17 @@
+#Once we have the Pretext, we upload the file to the 04.1.Pretext folder with this name "out.pretext.agp_def"
+
+#!/bin/bash
+cd /mnt/DiscoB/naja/genome/assembly/fasta/scaffolding/manual_curation/agp-tpf-utils
+source venv/bin/activate
+
+WD="/home/panthera/DiscoF/CBP/Macroprotodon_brevis"
+indir=${WD}"/res/03.2.Scaffolding/consensus"        # Folder containing the .fa files
+indir2=${WD}"/res/04.1.Pretext"
+outbase=${WD}"/res/04.2.Pretext_to_fasta"     # Parent output directory
+THREADS=16
+mkdir -p $outbase
+cd $WD
+python /home/panthera/DiscoB/naja/genome/assembly/fasta/scaffolding/manual_curation/agp-tpf-utils/src/tola/assembly/scripts/pretext_to_asm.py -a ${indir}/scaffolds_FINAL.fasta -p ${indir2}/out.pretext.agp_def -o pretextview_out.tpf
+
+
+python /home/panthera/DiscoB/naja/genome/assembly/fasta/scaffolding/manual_curation/rapid_join2.py -f ${indir}/scaffolds_FINAL.fasta -t ${outbase}/pretextview_out.tpf -c ${outbase}/pretextview_out.chromosome.list.csv -o ${outbase}/curated.fasta
