@@ -1,0 +1,74 @@
+# Our last step in Panthera is to decontaminate the genome. We will also need to mask our genome with RepeatModeller, but it's still not installed here:
+
+#!/bin/bash
+WD="/home/panthera/DiscoF/CBP/Macroprotodon_brevis"
+outdir=${WD}"/res/05.4.Decontamination"
+indir=${WD}/"res/05.3.Mitofinder"
+mkdir -p $outdir
+ref=${indir}/Ref_NoMito.fa
+THREADS=20
+src_dir=${WD}/src
+indir2=${WD}/
+source /home/panthera/miniconda3/etc/profile.d/conda.sh
+conda activate blast-env
+
+
+blastn -db /mnt/DiscoD/iberolacerta/analyses/hi-c/tutorial_manual/following_german/nt_december/nt -query $ref -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
+ staxid" -max_target_seqs 10 -max_hsps 1 -evalue 1e-25 -num_threads $THREADS -out ${outdir}/output2.ncbi.blastn.out
+
+sed -E 's/^([^\t]+)\t[^|]+\|[^|]+\|[^|]+\|([^|]+)\|/\1\t\2/' ${outdir}/output2.ncbi.blastn.out > ${outdir}/cleaned_output2.blastn.out
+
+
+#create a taxid map file:
+cut -f2 ${outdir}/cleaned_output2.blastn.out | sort | uniq > ${outdir}/sseqids.txt
+
+conda deactivate
+
+#If the pipeline didn't work, this might be a way to fix it:
+#echo 'export SSL_CERT_FILE=/etc/ssl/certs/Fortinet_CA_SSL.cer' >> ~/.bashrc
+#source ~/.bashrc
+
+conda activate python3.7_2
+
+python ${src_dir}/fetch_taxids.py ${outdir}/sseqids.txt ${outdir}/new_taxid_map.tsv
+
+conda deactivate
+conda activate blobtools
+
+cd $outdir
+
+blobtools taxify \
+  -f cleaned_output2.blastn.out \
+  -m new_taxid_map.tsv \
+  -s 0 \
+  -t 1 \
+  -o cleaned_output2.blastn.taxified
+
+
+cd $WD
+
+#/home/panthera/software/minimap2/minimap2 -ax map-ont -t $THREADS $ref res/01.1.Trimming/filtered_ONT.fq.gz |samtools sort -@5 -O BAM -o ${outdir}/aln_ONT_sorted.bam - 
+
+#cd $outdir
+
+# Convert SAM to BAM, but no need in theory if run like before
+#samtools view -Sb aln_ONT.sam > aln.bam
+
+# Sort BAM file
+#samtools sort aln.bam -o aln_ONT_sorted.bam
+
+# Index the BAM file
+#samtools index aln_ONT_sorted.bam
+
+cd  $WD
+#CHECK THE NAME of the taxified output!!!
+
+#blobtools create -i $ref -b ${outdir}/aln_ONT_sorted.bam -t ${outdir}/cleaned_output2.blastn.taxified.cleaned_output2.blastn.taxified.out -o ${outdir}/blobdir --names /mnt/DiscoF/CBP/taxdump_db/names.dmp --nodes /mnt/DiscoF/CBP/taxdump_db/nodes.dmp
+cd $outdir
+
+#blobtools view -i blobdir.blobDB.json -o blobdir
+#blobtools plot -i blobdir.blobDB.json -o blobdir
+
+#awk -F"\t" '$6 == "Chordata" {print $1}' blobdir.blobir.blobDB.table.txt > keep_scaffolds.txt
+#awk 'NR==FNR {keep[$1]; next} /^>/ {show = substr($0, 2) in keep} show' keep_scaffolds.txt $ref > ${outdir}/Ref_NoMito_decontam.fa
+
