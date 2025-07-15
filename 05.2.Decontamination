@@ -47,9 +47,9 @@ blobtools taxify \
 
 cd $WD
 
-#/home/panthera/software/minimap2/minimap2 -ax map-ont -t $THREADS $ref res/01.1.Trimming/filtered_ONT.fq.gz |samtools sort -@5 -O BAM -o ${outdir}/aln_ONT_sorted.bam - 
+/home/panthera/software/minimap2/minimap2 -ax map-ont -t $THREADS $ref res/01.1.Trimming/filtered_ONT.fq.gz |samtools sort -@5 -O BAM -o ${outdir}/aln_ONT_sorted.bam - 
 
-#cd $outdir
+cd $outdir
 
 # Convert SAM to BAM, but no need in theory if run like before
 #samtools view -Sb aln_ONT.sam > aln.bam
@@ -58,17 +58,19 @@ cd $WD
 #samtools sort aln.bam -o aln_ONT_sorted.bam
 
 # Index the BAM file
-#samtools index aln_ONT_sorted.bam
+samtools index aln_ONT_sorted.bam
 
 cd  $WD
 #CHECK THE NAME of the taxified output!!!
 
-#blobtools create -i $ref -b ${outdir}/aln_ONT_sorted.bam -t ${outdir}/cleaned_output2.blastn.taxified.cleaned_output2.blastn.taxified.out -o ${outdir}/blobdir --names /mnt/DiscoF/CBP/taxdump_db/names.dmp --nodes /mnt/DiscoF/CBP/taxdump_db/nodes.dmp
+blobtools create -i $ref -b ${outdir}/aln_ONT_sorted.bam -t ${outdir}/cleaned_output2.blastn.taxified.cleaned_output2.blastn.taxified.out -o ${outdir}/blobdir --names /mnt/DiscoF/CBP/taxdump_db/names.dmp --nodes /mnt/DiscoF/CBP/taxdump_db/nodes.dmp
 cd $outdir
 
-#blobtools view -i blobdir.blobDB.json -o blobdir
-#blobtools plot -i blobdir.blobDB.json -o blobdir
+blobtools view -i blobdir.blobDB.json -o blobdir
+blobtools plot -i blobdir.blobDB.json -o blobdir
 
-#awk -F"\t" '$6 == "Chordata" {print $1}' blobdir.blobir.blobDB.table.txt > keep_scaffolds.txt
-#awk 'NR==FNR {keep[$1]; next} /^>/ {show = substr($0, 2) in keep} show' keep_scaffolds.txt $ref > ${outdir}/Ref_NoMito_decontam.fa
+awk -F"\t" '$6 == "Chordata" {print $1}' blobdir.blobdir.blobDB.table.txt > keep_scaffolds.txt
+awk 'NR==FNR {keep[$1]; next} /^>/ {show = substr($0, 2) in keep} show' keep_scaffolds.txt $ref > ${outdir}/Ref_NoMito_decontam.fa
+
+rm *am
 
