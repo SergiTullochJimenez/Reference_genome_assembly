@@ -1,76 +1,121 @@
-# Our last step in Panthera is to decontaminate the genome. We will also need to mask our genome with RepeatModeller, but it's still not installed here:
-
 #!/bin/bash
-WD="/home/panthera/DiscoF/CBP/Macroprotodon_brevis"
-outdir=${WD}"/res/05.4.Decontamination"
-indir=${WD}/"res/05.3.Mitofinder"
-mkdir -p $outdir
-ref=${indir}/Ref_NoMito.fa
-THREADS=20
-src_dir=${WD}/src
-indir2=${WD}/
-source /home/panthera/miniconda3/etc/profile.d/conda.sh
-conda activate blast-env
+set -euo pipefail   # abort on error, on unset vars, and on failed pipe stages
+
+species"Species_of_interest"
+WD="/home/panthera/DiscoF/CBP/$species"
+outdir="${WD}/res/05.2.Decontamination"
+indir="${WD}/res/05.1.Mitofinder"
+ref="${indir}/Ref_NoMito.fa"
+THREADS=25
+src_dir="path_to_script"
+BLAST_NT_DB="path_to_database"
+TAXDUMP_NAMES="path_to_taxdump/names.dmp"
+TAXDUMP_NODES="path_to_taxdump/nodes.dmp"
+ONT_FQ="${WD}/res/01.1.Trimming/filtered_ONT.fq.gz"
+
+# Which taxonomic categories to KEEP in the final decontaminated assembly.
+# "Chordata" alone will also discard every scaffold with no BLAST hit
+# (short/repetitive/novel sequence) -- those are disproportionately real
+# host sequence, not contaminants. Keeping no-hit/undef alongside Chordata
+# is the safer default; inspect the blobplot and tighten this later if you
+# find that's letting real contamination through.
+KEEP_CATEGORIES=("Chordata" "no-hit" "undef")
+
+mkdir -p "$outdir"
+
+#### 1. BLAST against nt ####
+if [[ ! -s "${outdir}/output2.ncbi.blastn.out" ]]; then
+    blastn -task megablast -db "$BLAST_NT_DB" -query "$ref" \
+        -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore staxid" \
+        -max_target_seqs 10 -max_hsps 1 -evalue 1e-25 -num_threads "$THREADS" \
+        -out "${outdir}/output2.ncbi.blastn.out"
+else
+    echo "output2.ncbi.blastn.out already exists, skipping blastn"
+fi
+
+if [[ ! -s "${outdir}/cleaned_output2.blastn.out" ]]; then
+    sed -E 's/^([^\t]+)\t[^|]+\|[^|]+\|[^|]+\|([^|]+)\|/\1\t\2/' \
+        "${outdir}/output2.ncbi.blastn.out" > "${outdir}/cleaned_output2.blastn.out"
+else
+    echo "cleaned_output2.blastn.out already exists, skipping cleanup step"
+fi
+
+# create a taxid map file
+if [[ ! -s "${outdir}/sseqids.txt" ]]; then
+    cut -f2 "${outdir}/cleaned_output2.blastn.out" | sort | uniq > "${outdir}/sseqids.txt"
+else
+    echo "sseqids.txt already exists, skipping"
+fi
+
+#### 2. Fetch taxids ####
+if [[ ! -s "${outdir}/new_taxid_map.tsv" ]]; then
+    python \
+        "${src_dir}/fetch_taxids.py" "${outdir}/sseqids.txt" "${outdir}/new_taxid_map.tsv"
+else
+    echo "new_taxid_map.tsv already exists, skipping taxid fetch"
+fi
+
+#### 3. Taxify BLAST hits ####
+cd "$outdir"
+if [[ ! -s "${outdir}/cleaned_output2.blastn.taxified.cleaned_output2.blastn.taxified.out" ]]; then
+    blobtools taxify \
+        -f cleaned_output2.blastn.out \
+        -m new_taxid_map.tsv \
+        -s 0 \
+        -t 1 \
+        -o cleaned_output2.blastn.taxified
+else
+    echo "taxified output already exists, skipping blobtools taxify"
+fi
+cd "$WD"
+
+#### 4. Map ONT reads against the reference ####
+if [[ ! -s "${outdir}/aln_ONT_sorted.bam" ]]; then
+    minimap2 -ax map-ont -t "$THREADS" "$ref" "$ONT_FQ" \
+        | samtools sort -@5 -O BAM -o "${outdir}/aln_ONT_sorted.bam" -
+else
+    echo "aln_ONT_sorted.bam already exists, skipping ONT mapping"
+fi
+[[ -s "${outdir}/aln_ONT_sorted.bam.bai" ]] || samtools index "${outdir}/aln_ONT_sorted.bam"
+cd "$WD"
+
+#### 5. Build, view, and plot the BlobDB ####
+# CHECK THE NAME of the taxified output file below -- blobtools' -o naming
+# can produce an unexpected concatenated filename; confirm with
+# `ls ${outdir}/cleaned_output2.blastn.taxified*` before trusting this.
+if [[ ! -s "${outdir}/blobdir.blobDB.json" ]]; then
+    blobtools create -i "$ref" -b "${outdir}/aln_ONT_sorted.bam" \
+        -t "${outdir}/cleaned_output2.blastn.taxified.cleaned_output2.blastn.taxified.out" \
+        -o "${outdir}/blobdir" \
+        --names "$TAXDUMP_NAMES" --nodes "$TAXDUMP_NODES"
+else
+    echo "blobdir.blobDB.json already exists, skipping blobtools create"
+fi
+
+cd "$outdir"
+[[ -s "blobdir.blobdir.blobDB.table.txt" ]] || blobtools view -i blobdir.blobDB.json -o blobdir
+
+# blobtools' plot output filename varies by version/options, so we can't
+# reliably guess it -- just check whether any blobplot PNG already exists.
+if ! ls blobdir*blobplot*.png >/dev/null 2>&1; then
+    blobtools plot -i blobdir.blobDB.json -o blobdir
+else
+    echo "a blobplot PNG already exists, skipping blobtools plot"
+fi
 
 
-blastn -db /mnt/DiscoD/iberolacerta/analyses/hi-c/tutorial_manual/following_german/nt_december/nt -query $ref -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
- staxid" -max_target_seqs 10 -max_hsps 1 -evalue 1e-25 -num_threads $THREADS -out ${outdir}/output2.ncbi.blastn.out
+#### 6. Filter scaffolds by taxonomy ####
+# Confirm column 6 really is the phylum column for your blobtools version
+# before trusting this blindly -- check the header (lines starting with
+# ##) in blobdir.blobdir.blobDB.table.txt.
+table="blobdir.blobdir.blobDB.table.txt"
+keep_pattern=$(IFS='|'; echo "${KEEP_CATEGORIES[*]}")
+awk -F"\t" -v pat="$keep_pattern" 'BEGIN{split(pat, arr, "|"); for (i in arr) keep[arr[i]]=1} $6 in keep {print $1}' \
+    "$table" > keep_scaffolds.txt
 
-sed -E 's/^([^\t]+)\t[^|]+\|[^|]+\|[^|]+\|([^|]+)\|/\1\t\2/' ${outdir}/output2.ncbi.blastn.out > ${outdir}/cleaned_output2.blastn.out
+echo "Keeping $(wc -l < keep_scaffolds.txt) scaffolds in categories: ${KEEP_CATEGORIES[*]}"
 
+awk 'NR==FNR {keep[$1]; next} /^>/ {show = substr($0, 2) in keep} show' \
+    keep_scaffolds.txt "$ref" > Ref_NoMito_decontam.fa
 
-#create a taxid map file:
-cut -f2 ${outdir}/cleaned_output2.blastn.out | sort | uniq > ${outdir}/sseqids.txt
-
-conda deactivate
-
-#If the pipeline didn't work, this might be a way to fix it:
-#echo 'export SSL_CERT_FILE=/etc/ssl/certs/Fortinet_CA_SSL.cer' >> ~/.bashrc
-#source ~/.bashrc
-
-conda activate python3.7_2
-
-python ${src_dir}/fetch_taxids.py ${outdir}/sseqids.txt ${outdir}/new_taxid_map.tsv
-
-conda deactivate
-conda activate blobtools
-
-cd $outdir
-
-blobtools taxify \
-  -f cleaned_output2.blastn.out \
-  -m new_taxid_map.tsv \
-  -s 0 \
-  -t 1 \
-  -o cleaned_output2.blastn.taxified
-
-
-cd $WD
-
-/home/panthera/software/minimap2/minimap2 -ax map-ont -t $THREADS $ref res/01.1.Trimming/filtered_ONT.fq.gz |samtools sort -@5 -O BAM -o ${outdir}/aln_ONT_sorted.bam - 
-
-cd $outdir
-
-# Convert SAM to BAM, but no need in theory if run like before
-#samtools view -Sb aln_ONT.sam > aln.bam
-
-# Sort BAM file
-#samtools sort aln.bam -o aln_ONT_sorted.bam
-
-# Index the BAM file
-samtools index aln_ONT_sorted.bam
-
-cd  $WD
-#CHECK THE NAME of the taxified output!!!
-
-blobtools create -i $ref -b ${outdir}/aln_ONT_sorted.bam -t ${outdir}/cleaned_output2.blastn.taxified.cleaned_output2.blastn.taxified.out -o ${outdir}/blobdir --names /mnt/DiscoF/CBP/taxdump_db/names.dmp --nodes /mnt/DiscoF/CBP/taxdump_db/nodes.dmp
-cd $outdir
-
-blobtools view -i blobdir.blobDB.json -o blobdir
-blobtools plot -i blobdir.blobDB.json -o blobdir
-
-awk -F"\t" '$6 == "Chordata" {print $1}' blobdir.blobdir.blobDB.table.txt > keep_scaffolds.txt
-awk 'NR==FNR {keep[$1]; next} /^>/ {show = substr($0, 2) in keep} show' keep_scaffolds.txt $ref > ${outdir}/Ref_NoMito_decontam.fa
-
-rm *am
-
+echo "Decontaminated assembly written to ${outdir}/Ref_NoMito_decontam.fa"
