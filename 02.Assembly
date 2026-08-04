@@ -1,6 +1,7 @@
 # Now we can confidently assemble the reference genome. We're using the ONT flag inside hifiasm to do it
 
 #!/bin/bash
+species="Species_of_interest"
 WD="/home/panthera/DiscoF/CBP/$species"
 indir=${WD}"/res/01.1.Trimming"
 outdir=${WD}"/res/02.1.Assembly"
@@ -17,7 +18,6 @@ awk '/^S/{print ">"$2"\n"$3}' ${outdir}/Assembly.asm.hic.hap2.p_ctg.gfa |fold > 
 
 # And we can also see our results. Up to now BUSCO is working well enough, but I've been unable to keep the gfastats in a .txt file, aside from actually copying and pasting from the terminal:
 
-#!/bin/bash
 WD="/home/panthera/DiscoF/CBP/$species"
 indir=${WD}"/res/02.1.Assembly"
 outdir=${WD}"/res/02.2.Assessment"
