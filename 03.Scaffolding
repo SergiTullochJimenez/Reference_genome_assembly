@@ -3,40 +3,42 @@
 #!/bin/bash
 
 # Set your paths
-WD="/home/panthera/DiscoF/CBP/Macroprotodon_brevis"
+species="Species_of_interest"
+WD="/home/panthera/DiscoF/CBP/$species"
 indir=${WD}"/res/02.1.Assembly"        # Folder containing the .fa files
 outbase=${WD}"/res/03.1.Pre-Scaffolding"     # Parent output directory
-source="/mnt/DiscoD/reference_genome/scaffolding/"  # Path to your Perl script
+source="path_to_script"  # Path to your Perl script
 fq1=${WD}/res/01.1.Trimming/filtered_Arima_HIC_1.fq.gz
 fq2=${WD}/res/01.1.Trimming/filtered_Arima_HIC_2.fq.gz
 
 for version in consensus hap1 hap2; do
-    ref="${indir}/Macroprotodon_brevis_${version}.fa"
+    ref="${indir}/assembly_${version}.fa"
     outdir="${outbase}/${version}"
     mkdir -p "${outdir}"
 
     echo "Processing version: ${version}"
 
     # Index reference
-   bwa index "${ref}"
-   samtools faidx "${ref}"
+    bwa index "${ref}"
+    samtools faidx "${ref}"
 
     # Map forward reads
-   bwa mem -t 30 "${ref}" "${fq1}" | samtools view -@ 20 -Sb - > "${outdir}/forward.bam"
+    bwa mem -t 20 "${ref}" "${fq1}" | samtools view -@ 30 -Sb - > "${outdir}/forward.bam"
 
     # Map reverse reads
-    bwa mem -t 30 "${ref}" "${fq2}" | samtools view -@ 20 -Sb - > "${outdir}/reverse.bam"
+    bwa mem -t 20 "${ref}" "${fq2}" | samtools view -@ 30 -Sb - > "${outdir}/reverse.bam"
 
     # Filter forward reads
-    samtools view -h ${outdir}/forward.bam | perl ${source}filter_five_end.pl | samtools view -Sb - > ${outdir}/forward_filtered.bam
+    samtools view -h "${outdir}/forward.bam" | perl ${source}filter_five_end.pl | samtools view -Sb - > ${outdir}/forward_filtered.bam
 
     # Filter reverse reads
     samtools view -h ${outdir}/reverse.bam | perl ${source}filter_five_end.pl | samtools view -Sb - > ${outdir}/reverse_filtered.bam
 
 echo "### Pairing reads"
-perl ${source}two_read_bam_combiner.pl ${outdir}/forward_filtered.bam ${outdir}/reverse_filtered.bam | samtools view -@ 20 -Sb > ${outdir}/combined.bam
+perl ${source}two_read_bam_combiner.pl ${outdir}/forward_filtered.bam ${outdir}/reverse_filtered.bam | samtools view -@ 30 -Sb > ${outdir}/combined.bam
 
-samtools sort -@ 24 -o ${outdir}/sorted.bam ${outdir}/combined.bam
+samtools sort -@ 32 -o ${outdir}/sorted.bam ${outdir}/combined.bam
+
 
 java -jar /home/panthera/software/picard/picard.jar MarkDuplicates \
   I=${outdir}/sorted.bam \
@@ -49,33 +51,24 @@ samtools index ${outdir}/combined.dedup.bam
 
 bamToBed -i ${outdir}/combined.dedup.bam > ${outdir}/combined.dedup.bed
 sort -k 4 ${outdir}/combined.dedup.bed > ${outdir}/tmp && mv ${outdir}/tmp ${outdir}/combined.dedup.bed
-echo "Done with version: ${version}"
-    echo "-----------------------------"
+
+    echo "Done with version: ${version}"
 done
 
 
-# And with all this ready, we can scaffold our genome. I'm mostly using yahs, but in some ocasion i could use salsa2:
+#Once prepared we can scaffold, which will be done with YaHs
 
-#!/bin/bash
-WD="/home/panthera/DiscoF/CBP/Macroprotodon_brevis"
+WD="/home/panthera/DiscoF/CBP/$species"
 indir=${WD}"/res/02.1.Assembly"
 indir2=${WD}"/res/03.1.Pre-Scaffolding"
 outbase=${WD}"/res/03.2.Scaffolding"
-source="/mnt/DiscoD/reference_genome/scaffolding/"
-
 
 for version in consensus hap1 hap2; do
-    ref="${indir}/Macroprotodon_brevis_${version}.fa"
-    outdir="${outbase}/${version}"
+ref=${indir}/assembly_${version}.fa
+    outdir="${outbase}/${version}/"
     mkdir -p "${outdir}"
 samtools faidx $ref
-#Run SALSA (check Gabri's script for installation)
-#conda init
-#conda activate salsa2_reqs
-#run_pipeline.py --assembly $ref --length ${ref}.fai --bed ${indir2}/${version}/combined.dedup.bed --enzyme GANTC --output ${outdir} > ${outdir}/log_salsa 2>&1
 
-#Alternatively, run YAHS
-/home/panthera/software/yahs/yahs $ref ${indir2}/${version}/combined.dedup.bed -e GANTC --no-contig-ec -o ${outdir} > ${outdir}/log_yahs 2>&1
+yahs $ref ${indir2}/${version}/combined.dedup.bed -e GANTC --no-contig-ec -o ${outdir}
 
 done
-
