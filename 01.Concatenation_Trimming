@@ -1,0 +1,59 @@
+# Our first step is to concatenate all the data from each type into a single file for each one (keeping type of data and forawrd/reverse separate).
+
+#!/bin/bash
+species="Species_of_interest"
+WD="/mnt/DiscoF/CBP/$species"
+ONT=${WD}"/data/ONT"
+HIC=${WD}"/data/HIC"
+ILLUMINA=${WD}"/data/ILLUMINA"
+
+
+zcat ${ONT}/*.gz | pigz -p 10 -c > ${ONT}/raw_ONT.fq.gz
+
+#zcat ${HIC}/*_1.* | pigz -p 10 -c > ${HIC}/raw_HIC_1.fq.gz
+
+#zcat $ILLUMINA/*_1.* | pigz -p 10 -c > ${ILLUMINA}/raw_ILLUMINA_1.fq.gz
+
+#zcat $HIC/*_2.* | pigz -p 10 -c > ${HIC}/raw_HIC_2.fq.gz
+
+#zcat $ILLUMINA/*_2.* | pigz -p 10 -c > ${ILLUMINA}/raw_ILLUMINA_2.fq.gz
+
+# We also want to check for the quality of our data. This won't work with the ONT data, but will with Illumina and HiC
+
+mkdir ${WD}/res/00.multiqc
+for i in $(ls data/*/raw*)
+do
+d=${WD}/${i}
+echo "Processing directory: ${d}"
+(fastqc ${d} -o ${WD}/res/00.multiqc/
+)
+done
+
+# Now we have to trim our data to get rid of the adaptors:
+
+#!/bin/bash
+WD="/mnt/DiscoF/CBP/$species"
+ONT=${WD}"/data/ONT"
+HIC=${WD}"/data/HIC"
+ILLUMINA=${WD}"/data/ILLUMINA"
+outdir=${WD}"/res/01.1.Trimming"
+mkdir -p $outdir
+THREADS=15
+
+#fastp -i $ILLUMINA/raw_ILLUMINA_1.fq.gz  -I $ILLUMINA/raw_ILLUMINA_2.fq.gz  -o $outdir/filtered_ILLUMINA_1.fq.gz -O $outdir/filtered_ILLUMINA_2.fq.gz --thread 30 --qualified_quality_phred 30 --correction --trim_poly_g --trim_poly_x --detect_adapter_for_pe
+
+filtlong --min_length 1000 --min_mean_q 80 $ONT/raw_ONT.fq.gz | pigz -p 20 -c > $outdir/filtered_ONT.fq.gz
+
+fastp -i $HIC/raw_HIC_1.fq.gz  -I $HIC/raw_HIC_2.fq.gz  -o $outdir/filtered_HIC_1.fq.gz -O $outdir/filtered_HIC_2.fq.gz --thread ${THREADS} --qualified_quality_phred 30 --correction --trim_poly_g --trim_poly_x --detect_adapter_for_pe
+
+
+zcat ${outdir}/filtered_HIC_1.fq.gz | awk '{ if(NR%2==0) {print substr($1,6) } else {print} }' | gzip > ${outdir}/filtered_Arima_HIC_1.fq.gz
+zcat ${outdir}/filtered_HIC_2.fq.gz | awk '{ if(NR%2==0) {print substr($1,6) } else {print} }' | gzip > ${outdir}/filtered_Arima_HIC_2.fq.gz
+
+# It's also useful to know how our kmers are distributed. I managed to run them with this script:
+
+
+meryl histogram $outdir/combined21 > $outdir/kmers21.hist
+
+
+genomescope.R -i $outdir/kmers21.hist -o $outdir/final21 -k 21
