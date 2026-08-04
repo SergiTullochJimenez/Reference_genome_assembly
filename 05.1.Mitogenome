@@ -1,23 +1,26 @@
 # The mitochondrial genome isn't uploaded with the reference genome, but separately. In this script we can
 # 1: find our mitochondrial scaffold, which may be doubled or tripled dues to the alignments. From here we can separate it from the genome, to keep it by itself and eliminate it from the reference
 # 2: assemble the mitochondrial genome. It does give its problems
-
-WD="/home/panthera/DiscoF/CBP/Macroprotodon_brevis"
-indir=${WD}"/res/05.1.Masking"        # Folder containing the .fa files
-outbase="res/05.3.Mitofinder"     # Parent output directory
-THREADS=15
+#!/bin/bash
+species="Species_of_interest"
+WD="/home/panthera/DiscoF/CBP/$species"
+indir=${WD}"/res/04.2.Pretext_to_fasta"        # Folder containing the .fa files
+outbase="res/05.1.Mitofinder"     # Parent output directory
+THREADS=24
 reads1="res/01.1.Trimming/filtered_ILLUMINA_1.fq.gz"
 reads2="res/01.1.Trimming/filtered_ILLUMINA_2.fq.gz"
 mkdir -p $outbase
-ref=${indir}/genome.softmasked.fa.softmasked.fa
+reference="path_to_mito_reference"
+ref=${indir}/curated.fasta
 ##CHANGE because here we have consensus but not in the rest
 
 #To check if the mitogenome is within the assembly:
-#/home/panthera/software/MitoFinder/mitofinder -j comprobation -s $ref -r /mnt/DiscoB/naja/genome/assembly/fasta/mitogenome/Crotalus_reference_mit.gb -o 2 -p $THREADS -m 24
+mitofinder -j comprobation -s $ref -r $reference -o 2 -p $THREADS -m 24
 
 makeblastdb -in $ref -dbtype nucl -out ${outbase}/ref_db
 
-blastn -query ${outbase}/Macroprotodon_brevis_final_genes_NT.fasta \
+mv comprobation/comprobation_MitoFinder_megahit_mitfi_Final_Results/* $outbase
+blastn -query ${outbase}/comprobation_final_genes_NT.fasta \
        -db ${outbase}/ref_db \
        -out ${outbase}/mito_vs_ref.blast \
        -evalue 1e-20 \
@@ -26,14 +29,15 @@ blastn -query ${outbase}/Macroprotodon_brevis_final_genes_NT.fasta \
        -num_threads 8
 
 ##RUN this from the command line
-#sed 's/^>scaffold_37/>Mitochondrial/' original.fa > Mitochondrial_macroprotodon_brevis.fa
-#seqkit grep -v -r -p scaffold_37 res/04.2.Pretext_to_fasta/curated.fasta > res/05.3.Mitofinder/Ref_NoMito.fa
-# seqkit grep -n -p "scaffold_37" $ref > Mitochondrial_Macroprotodon_brevis.fa   CAREFULL!!! COuld be multiple copies
+#sed 's/^>scaffold_num/>Mitochondrial/' original.fa > Mitochondrial_macroprotodon_brevis.fa THIS IS ONLT TO CHANGE THE MITOCHONDIRAL NAME
+#seqkit grep -v -r -p scaffold_num res/04.2.Pretext_to_fasta/curated.fasta > res/05.3.Mitofinder/Ref_NoMito.fa
+# seqkit grep -n -p "scaffold_num" $ref > Mitochondrial_Macroprotodon_brevis.fa   CAREFULL!!! COuld be multiple copies
 
 
 
 
 #To assemble the mitogenome:
 
-#/home/panthera/software/MitoFinder/mitofinder -j Macroprotodon_brevis \
+#/home/panthera/software/MitoFinder/mitofinder -j res/05.1.Mitogenome/Mitofinder \
 #-1 $reads1 -2 $reads2 -r /mnt/DiscoB/naja/genome/assembly/fasta/mitogenome/Crotalus_reference_mit.gb -o 2 -p $THREADS -m 100 --override
+
