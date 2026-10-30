@@ -1,0 +1,16 @@
+# species<TAB>Z scaffold name(s) as in the masked.fa (comma-separated if split across scaffolds)
+Coronella_austriaca	SUPER_SUPER_Z
+Coronella_girondica	SUPER_SUPER_Z
+Macroprotodon_mauritanicus	SUPER_SUPER_Z
+Zamenis_scalaris	SUPER_SUPER_Z
+Natrix_maura	ENA_OZ211057_OZ211057.1
+Malpolon_monspessulanus	ENA_OZ184076_OZ184076.1
+Hemorrhois_hippocrepis	ENA_OZ203519_OZ203519.1
+Vipera_aspis	ENA|JBPPCC010000023|JBPPCC010000023.1,ENA|JBPPCC010000011|JBPPCC010000011.1,ENA|JBPPCC010000022|JBPPCC010000022.1
+Vipera_latastei	ENA|CM044371|CM044371.1
+Vipera_seoanei	ENA|JBPPCB010000018|JBPPCB010000018.1
+Natrix_helvetica	OZ187407.1
+Natrix_astreptophora	SUPER_SUPER_Z
+Macroprotodon_brevis	SUPER_SUPER_4
+Zamenis_longissimus	SUPER_SUPER_4
+Hierophis_viridiflavus	scaffold_4

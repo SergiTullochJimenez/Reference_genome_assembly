@@ -1,0 +1,16 @@
+# species<TAB>N = number of chromosomes (autosomes + Z, W excluded); the N largest scaffolds are plotted, renamed 1..N / Z / W
+Vipera_latastei	18
+Vipera_aspis	25
+Vipera_seoanei	18
+Malpolon_monspessulanus	23
+Hemorrhois_hippocrepis	20
+Natrix_maura	18
+Natrix_helvetica	18
+Coronella_austriaca	19
+Coronella_girondica	19
+Hierophis_viridiflavus	16
+Macroprotodon_brevis	18
+Macroprotodon_mauritanicus	19
+Natrix_astreptophora	17
+Zamenis_scalaris	18
+Zamenis_longissimus	18

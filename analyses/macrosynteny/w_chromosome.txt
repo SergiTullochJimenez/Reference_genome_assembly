@@ -1,0 +1,10 @@
+# species<TAB>W scaffold name(s) as in the masked.fa (comma-separated if split); W-only synteny comparisons link each listed species to the next listed one in SPECIES_ORDER
+Coronella_austriaca	SUPER_SUPER_W
+Coronella_girondica	SUPER_SUPER_W
+Macroprotodon_mauritanicus	SUPER_SUPER_W
+Zamenis_scalaris	SUPER_SUPER_W
+Hemorrhois_hippocrepis	ENA_OZ203522_OZ203522.1
+Malpolon_monspessulanus	ENA_OZ184078_OZ184078.1
+Natrix_maura	ENA_OZ211061_OZ211061.1
+Natrix_helvetica	OZ187408.1
+Natrix_astreptophora	SUPER_SUPER_W
